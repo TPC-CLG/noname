@@ -22,7 +22,7 @@ export default () => {
 				}
 			}
 			for (var i in lib.character) {
-				if (lib.character[i].group == "shen" || lib.character[i].group == "western") {
+				if (lib.character[i].group == "shen") {
 					lib.character[i].group = lib.character[i].groupInGuozhan || "qun";
 				}
 			}
@@ -1382,6 +1382,7 @@ export default () => {
 							return get.event().getTrigger().targets.includes(target) && target.countCards("he");
 						})
 						.set("ai", target => {
+							if (_status.event.player === target) return 0;
 							var att = get.attitude(_status.event.player, target);
 							if (att > 0) return Math.sqrt(att) / 10;
 							return 5 - att;
@@ -1390,7 +1391,7 @@ export default () => {
 				},
 				async content(event, trigger, player) {
 					const result = await event.targets[0]
-						.chooseToGive(player, "he", true, "give")
+						.chooseToGive(player, "he", true, `承赏：交给${get.translation(player)}一张牌，若为${get.translation(trigger.card.suit)}${get.strNumber(trigger.card.number)}则${get.translation(player)}失去此技能`)
 						.set("ai", card => {
 							const player = get.player(),
 								source = get.event().getParent().player,
@@ -1569,16 +1570,15 @@ export default () => {
 						},
 					},
 					backup: {
-						filterCard: true,
+						filterCard(card) {
+							return get.itemtype(card) == "card";
+						},
 						position: "hs",
 						check(card) {
 							return 7 - get.value(card);
 						},
 						log: false,
 						viewAs: { name: "huoshaolianying" },
-						precontent() {
-							delete event.result.skill;
-						},
 					},
 				},
 			},
@@ -2815,9 +2815,9 @@ export default () => {
 									filterCard: true,
 									position: "hs",
 									popname: true,
+									log: false,
 									precontent() {
 										player.logSkill("fakechengshang_effect");
-										delete event.result.skill;
 										const cardx = event.result.card;
 										const removes = player.getStorage("fakechengshang_effect").filter(card => {
 											return lib.card.list.some(list => {
@@ -3522,9 +3522,9 @@ export default () => {
 									},
 									position: "h",
 									popname: true,
+									log: false,
 									precontent() {
 										player.logSkill("fakemibei_effect");
-										delete event.result.skill;
 										player.tempBanSkill("fakemibei_effect", null, false);
 									},
 									viewAs: {
@@ -4444,9 +4444,7 @@ export default () => {
 						position: "he",
 						popname: true,
 						viewAs: { name: "sha", nature: "ice" },
-						precontent() {
-							delete event.result.skill;
-						},
+						log: false,
 					},
 					effect: {
 						charlotte: true,
@@ -5544,7 +5542,7 @@ export default () => {
 				async cost(event, trigger, player) {
 					event.result = await player
 						.chooseCardTarget({
-							prompt: get.prompt2("yuanhu"),
+							prompt: get.prompt2("fakehuyuan"),
 							filterCard(card) {
 								return get.type(card) == "equip";
 							},
@@ -21273,7 +21271,7 @@ export default () => {
 			fakejizhi: "集智",
 			fakejueyan_info: "主将技。①此武将牌计算体力上限时减少半个阴阳鱼。②准备阶段，你可以选择一个区域并于本回合的结束阶段弃置此区域的所有牌，然后你于本回合获得以下对应效果：⒈判定区：跳过判定阶段，获得〖集智〗直到回合结束；⒉装备区：摸三张牌，本回合手牌上限+3；⒊手牌区：本回合使用【杀】的额定次数+3。",
 			fakequanji: "权计",
-			fakequanji_info: "①每回合每项各限一次，当你造成或受到伤害后，你可以摸X张牌，然后将等量的牌称为“权”置于武将牌上。②你的手牌上限+X（X为你武将牌上的“权”数）。",
+			fakequanji_info: "①每回合每项各限一次，当你造成或受到伤害后，你可以摸X张牌（至多为你的体力上限），然后将等量的牌称为“权”置于武将牌上。②你的手牌上限+X（X为你武将牌上的“权”数）。",
 			fakepaiyi: "排异",
 			fakepaiyi_info: "出牌阶段限一次，你可以选择一名角色，然后选择一个军令令其选择是否执行。若其执行，则你摸X张牌，然后将一张“权”置入弃牌堆；若其不执行，则你可以对至多X名与其势力相同的角色各造成1点伤害，然后将等量的“权”置入弃牌堆。（X为你武将牌上的“权”数）",
 			fakeshilu: "嗜戮",
@@ -22924,61 +22922,6 @@ export default () => {
 					if (!list.includes(name1) || !list.includes(name2)) return false;
 					return (lib.perfectPair[name1] && lib.perfectPair[name1].flat(Infinity).includes(name2)) || (lib.perfectPair[name2] && lib.perfectPair[name2].flat(Infinity).includes(name1));
 				},
-				siege(player) {
-					if (this.identity == "unknown" || this.hasSkill("undist")) return false;
-					if (!player) {
-						var next = this.getNext();
-						if (next && next.sieged()) return true;
-						var previous = this.getPrevious();
-						if (previous && previous.sieged()) return true;
-						return false;
-					} else {
-						return player.sieged() && (player.getNext() == this || player.getPrevious() == this);
-					}
-				},
-				sieged(player) {
-					if (this.identity == "unknown") return false;
-					if (player) {
-						return player.siege(this);
-					} else {
-						var next = this.getNext();
-						var previous = this.getPrevious();
-						if (next && previous && next != previous) {
-							if (next.identity == "unknown" || next.isFriendOf(this)) return false;
-							return next.isFriendOf(previous);
-						}
-						return false;
-					}
-				},
-				inline() {
-					if (this.identity == "unknown" || this.identity == "ye" || this.hasSkill("undist")) return false;
-					var next = this,
-						previous = this;
-					var list = [];
-					for (var i = 0; next || previous; i++) {
-						if (next) {
-							next = next.getNext();
-							if (!next.isFriendOf(this) || next == this) {
-								next = null;
-							} else {
-								list.add(next);
-							}
-						}
-						if (previous) {
-							previous = previous.getPrevious();
-							if (!previous.isFriendOf(this) || previous == this) {
-								previous = null;
-							} else {
-								list.add(previous);
-							}
-						}
-					}
-					if (!list.length) return false;
-					for (var i = 0; i < arguments.length; i++) {
-						if (!list.includes(arguments[i]) && arguments[i] != this) return false;
-					}
-					return true;
-				},
 				logAi(targets, card) {
 					if (this.ai.shown == 1 || this.isMad()) return;
 					if (typeof targets == "number") {
@@ -23130,7 +23073,7 @@ export default () => {
 				if (fid == toidentity && toidentity != "ye") {
 					return 4 + difficulty;
 				}
-				if (from.identity == "unknown" && fid == toidentity) {
+				if (from.identity == "unknown" && fid == toidentity && fid != "ye") {
 					if (from.wontYe()) return 4 + difficulty;
 				}
 				var groups = [];
@@ -23199,7 +23142,7 @@ export default () => {
 				if (to == game.me) difficulty = (2 - get.difficulty()) * 1.5;
 				if (from == to) return 5 + difficulty;
 				if (from.isFriendOf(to)) return 5 + difficulty;
-				if (from.identity == "unknown" && fid == to.identity) {
+				if (from.identity == "unknown" && fid == to.identity && fid != "ye") {
 					if (from.wontYe()) return 4 + difficulty;
 				}
 				var att = get.realAttitude(from, to, difficulty, tid);

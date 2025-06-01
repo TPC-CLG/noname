@@ -976,7 +976,7 @@ game.import("card", function () {
 					result: {
 						target(player, target) {
 							if (target == player) {
-								if (!target.hasShan()) return 2;
+								if (!target.hasShan("all")) return 2;
 								var num = target.needsToDiscard(2);
 								if (num == 0) return 1.5;
 								if (num == 1) return 1;
@@ -1004,6 +1004,7 @@ game.import("card", function () {
 				global: "g_shihuifen",
 				content() {
 					"step 0";
+					if (!_status.currentPhase?.isIn()) return;
 					var next = _status.currentPhase.chooseToRespond({ name: "shan" });
 					next.set("respondTo", [player, card]);
 					next.set("prompt2", "否则本回合无法对其他角色使用卡牌");
